@@ -122,7 +122,8 @@ class InstaBot:
                  proxy="",
                  user_blacklist={},
                  tag_blacklist=[],
-                 unwanted_username_list=[]):
+                 unwanted_username_list=[], 
+                 unfollow_whitelist=[]):
 
         self.bot_start = datetime.datetime.now()
         self.unfollow_break_min = unfollow_break_min
@@ -130,6 +131,7 @@ class InstaBot:
         self.user_blacklist = user_blacklist
         self.tag_blacklist = tag_blacklist
         self.unlike_like_after = unlike_like_after
+        self.unfollow_whitelist = unfollow_whitelist
 
         self.time_in_day = 24 * 60 * 60
         # Like
@@ -634,7 +636,7 @@ class InstaBot:
             if (self.bot_mode == 0) :
                 for f in self.bot_follow_list:
                     if time.time() > (f[1] + self.follow_time):
-                        log_string = "Trying to unfollow #%i: "
+                        log_string = "Trying to unfollow #%i: " % (self.unfollow_counter+1)
                         self.write_log(log_string)
                         self.auto_unfollow()
                         self.bot_follow_list.remove(f)
@@ -701,13 +703,27 @@ class InstaBot:
         chooser = 1
         current_user = 'abcd'
         current_id = '12345'
+        checking = True
         self.media_on_feed = []
         if len(self.media_on_feed) < 1:
             self.get_media_id_recent_feed()
         if len(self.media_on_feed) != 0 :
             chooser = random.randint(0,len(self.media_on_feed)-1)
-            current_id=self.media_on_feed[chooser]["owner"]["id"]
-            current_user=self.media_on_feed[chooser]["owner"]["username"]
+            current_id=self.media_on_feed[chooser]['node']["owner"]["id"]
+            current_user=self.media_on_feed[chooser]['node']["owner"]["username"]
+            
+            while checking:
+                for wluser in self.unfollow_whitelist:
+                    if wluser == current_user:
+                        chooser = random.randint(0,len(self.media_on_feed)-1)
+                        current_id=self.media_on_feed[chooser]['node']["owner"]["id"]
+                        current_user=self.media_on_feed[chooser]['node']["owner"]["username"]
+                        log_string = ("found whitelist user, starting search again")
+                        self.write_log(log_string)
+                        break;
+                else:
+                    checking = False
+                    
         if (self.login_status):
             now_time = datetime.datetime.now()
             log_string = "%s : Get user info \n%s"%(self.user_login,now_time.strftime("%d.%m.%Y %H:%M"))
@@ -821,9 +837,9 @@ class InstaBot:
                     json_str = text[(all_data_start + finder_text_start_len + 1) \
                                    : all_data_end]
                     all_data = json.loads(json_str)
-
-                    self.media_on_feed = list(all_data['entry_data']['FeedPage'][0]\
-                                            ['feed']['media']['nodes'])
+                    
+                    self.media_on_feed = list(all_data['entry_data']['FeedPage'][0]['graphql']['user']['edge_web_feed_timeline']['edges'])
+                    
                     log_string="Media in recent feed = %i"%(len(self.media_on_feed))
                     self.write_log(log_string)
                 except:
